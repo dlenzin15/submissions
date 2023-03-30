@@ -18,6 +18,9 @@
 #define OCR0A_VALUE 124
 #define OVERFLOW_MAX 1000
 #define F_CPU 16000000UL	//Define clock speed at 8 MHz
+#define ADC_RESOLUTION 1024	// 10-bit ADC resolution
+#define VOLTAGE_REF 1100	// 1.1 V internal ref = 1100 mV 
+#define ADC_CONVERSION (VOLTAGE_REF/ADC_RESOLUTION)	// Formula to convert ADC raw data to voltage
 
 // Included Files
 #include <avr/io.h>
@@ -26,7 +29,7 @@
 
 // Global Variables
 unsigned int blink_enable = 0;		// Variable to enable the blinking LED at PB3
-volatile unsigned int adc_temp = 0;	// Variable to track the ADC values
+volatile uint16_t adc_temp = 0;		// Variable to track the raw ADC readings
 
 //Function declarations:
 void UART_init(unsigned int);
@@ -56,10 +59,10 @@ void UART_init(unsigned int ubrr)
 
 void timer_init(void)
 {
-	TCCR0A |= (1<<WGM01);		//Set Timer1 to CTC mode
+	TCCR0A |= (1<<WGM01);				//Set Timer1 to CTC mode
 	TCCR0B |= (1<<CS01) | (1<<CS00);	//Set prescaler to 1024
-	OCR0A = 124;				//Load compare register value
-	TIMSK0 |= (1 << OCIE0A);	//Set interrupt on compare match
+	OCR0A = OCR0A_VALUE;				//Load compare register value
+	TIMSK0 |= (1 << OCIE0A);			//Set interrupt on compare match
 }
 
 void led_init(void)
@@ -70,7 +73,7 @@ void led_init(void)
 
 void adc_init(void)
 {
-	// AVcc with external capacitor on AREF pin. Right adjusted result. ADC0 selected for PC0
+	// Use AVcc with external capacitor. Right adjusted result. ADC0 selected for PC0
 	ADMUX = (0<<REFS1) | (1<<REFS0) | (0<<ADLAR) | (0<<MUX2) | (0<<MUX1) | (0<<MUX0);
 	
 	// Set the prescaler to 32. Don't enable the ADC until it is needed
@@ -120,6 +123,7 @@ ISR(USART0_RX_vect)
 				turn_off_led();
 			break;
 		case 'b':
+			if (!(ADCSRA & (1 << ADEN)))	// Break if ADC is being read
 			blink_enable = 1;
 			break;
 		case 'P':
@@ -161,7 +165,7 @@ void UART_transmit_string(char *data) {
 void read_adc(void)
 {
 	ADCSRA |= (1<<ADSC); // Start a conversion
-	adc_temp = ADC;		// Read the ADC value into the temp variable to be used later
+	adc_temp = ADC;		// Read the raw ADC value
 }
 
 
@@ -177,9 +181,10 @@ int main(void)
 	while (1) {
 		if (ADCSRA & (1 << ADEN))	//Check if ADC has been enabled
 		{
-			char buffer[8];		//8-bit buffer to read ADC
+			char buffer[100];		//Buffer to read ADC
 			read_adc();
-			snprintf(buffer, sizeof(buffer), "%d\r\n", adc_temp);	//Read the adc value into the buffer
+			uint16_t adc_voltage = adc_temp * ADC_CONVERSION;
+			sprintf(buffer, "%d mV\r\n", adc_voltage);	//Read the adc value into the buffer
 			UART_transmit_string(buffer);	//Send the adc value to the terminal
 			_delay_ms(100);	//Delay for 0.10 seconds
 		}

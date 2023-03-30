@@ -124,7 +124,7 @@ ISR(USART0_RX_vect)
 			break;
 		case 'b':
 			if (!(ADCSRA & (1 << ADEN)))	// Break if ADC is being read
-			blink_enable = 1;
+				blink_enable = 1;
 			break;
 		case 'P':
 			if (!(ADCSRA & (1 << ADEN)))	// Break if ADC is being read

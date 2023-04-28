@@ -1,14 +1,11 @@
-/*
- * DA6_Task2.c
- *
- * Created: 4/25/2023 7:38:26 PM
- * Author : david
- */ 
-
 #define F_CPU 16000000UL					// Define F_CPU to 16 MHz
-#define BAUD 9600
-#define MYUBRR F_CPU/16/BAUD-1
 #define PERIOD 1/F_CPU
+
+#define SHIFT_REGISTER DDRB
+#define SHIFT_PORT PORTB
+#define DATA (1<<PB3) //MOSI (SI)
+#define LATCH (1<<PB2) //SS (RCK)
+#define CLOCK (1<<PB5) //SCK (SCK)
 
 #include <avr/interrupt.h>
 #include <avr/io.h>
@@ -40,28 +37,6 @@ int ADC_Read(char channel) /* ADC Read function */
 	ADCSRA |= (1 << ADIF); /* Clear interrupt flag */
 	_delay_us(1);          /* Wait a little bit */
 	return ADCW;           /* Return ADC word */
-}
-
-void UART_init(unsigned int ubrr)
-{
-	//Set baud rate
-	UBRR0H = (unsigned char)(ubrr>>8);
-	UBRR0L = (unsigned char)ubrr;
-	
-	//Enable transmitter and receiver and reciever interrupt
-	UCSR0B = (1<<RXEN0) | (1<<TXEN0) | (1<<RXCIE0);
-	
-	//Set frame format: 8 bits data, 1 stop bit
-	UCSR0C |= (1 << UCSZ00) | (1 << UCSZ01);
-	
-}
-
-void UART_transmit_string(char *data) {
-	while ((*data != '\0')) {	// Check if NULL char
-		while (!(UCSR0A & (1 <<UDRE0)));	// Wait for register to be
-		UDR0 = *data;	// Store data in the data register
-		data++;
-	}
 }
 
 ISR(INT0_vect)
@@ -114,48 +89,86 @@ ISR(TIMER3_OVF_vect) {
 	T1Ovs2++;
 }
 
-int main(void) {
+void init_IO(void){
+	//Setup IO
+	SHIFT_REGISTER |= (DATA | LATCH | CLOCK); //Set control pins as outputs
+	SHIFT_PORT &= ~(DATA | LATCH | CLOCK); //Set control pins low
+}
+void init_SPI(void){
+	//Setup SPI
+	SPCR0 = (1<<SPE) | (1<<MSTR); //Start SPI as Master
+}
+void spi_send(unsigned char byte){
+	SPDR0 = byte; //Shift in some data
+	while(!(SPSR0 & (1<<SPIF))); //Wait for SPI process to finish
+}
+
+/* Segment byte maps for numbers 0 to 9 */
+const uint8_t SEGMENT_MAP[] = {0xC0, 0xF9, 0xA4, 0xB0, 0x99,
+0x92, 0x82, 0xF8, 0X80, 0X90};
+/* Byte maps to select digit 1 to 4 */
+const uint8_t SEGMENT_SELECT[] = {0xF1, 0xF2, 0xF4, 0xF8};
+	
+int main(void)
+{
 	char outs[72];
-	UART_init(MYUBRR);
 	sei();
-	UART_transmit_string("Connected!\n"); // we're alive!
 	InitTimer3();
 	StartTimer3();
-	UART_transmit_string("TIMER3 ICP Running \r\n");
 	
-	/* set PD2 and PD3 as input */
-	DDRD &= ~(1 << DDD2);                            /* Make INT0 pin as Input */
-	//DDRD &= ~(1 << DDD3);                            /* Make INT1 pin as Input */
+	/* set PD2 as input */
+	DDRD &= ~(1 << DDD2);              /* Make INT0 pin as Input */
 	PORTD |= (1 << DDD2);              // turn On the Pull-up
-	DDRD |= (1 << DDD6) | (1 << DDD5) | (1<<DDD1); /* Make PWM, AIN1, AIN2, STBY outputs */
-	DDRC |= (1<<DDC4)
+	
+	/* Make PWM, AIN1, AIN2, STBY outputs */
+	DDRD |= (1 << DDD6) | (1 << DDD5) | (1 << DDD1); 
+	DDRC |= (1<<DDC4);
 	
 	// We are manually setting the direction
 	PORTD &= ~(1 << PD5); //set AIN2 low
 	PORTD |= (1 << PD1); //set AIN1 and STBY high
-	PORTC |= (1<<PC4);
+	PORTC |= (1 << PC4);
 	EIMSK |= (1 << INT0) | (1 << INT1); /* enable INT0 and INT1 */
 	MCUCR |= (1 << ISC01) | (1 << ISC11) |
 	(1 << ISC10); /* INT0 - falling edge, INT1 - raising edge */
-	
+		
 	// WE are not using the ADC for speed - just manually setting the value
-	ADC_Init(); /* Initialize ADC */
-	TCNT0 = 0;  /* Set timer0 count zero */
+	ADC_Init(); // Initialize ADC
+	TCNT0 = 0;  // Set timer0 count zero
 	TCCR0A |= (1 << WGM00) | (1 << WGM01) | (1 << COM0A1);
 	TCCR0B |=
-	(1 << CS00) | (1 << CS01); /* Set Fast PWM with Fosc/64 Timer0 clock */
+	(1 << CS00) | (1 << CS01); // Set Fast PWM with Fosc/64 Timer0 clock 
 	OCR0A = 30;
 	
-	while (1) {
-		OCR0A = (ADC_Read(0)/4);			// Read ADC and map it into 0-255 to write in OCR0 register 
+	init_IO();
+	init_SPI();
+	while(1)
+	{
+		OCR0A = (ADC_Read(0)/4);			// Read ADC and map it into 0-255 to write in OCR0 register
 
 		// Convert ticks to RPM
-		float rpms = (float)PERIOD * (float)revTickAvg * 1000.0 * 2.0;
+		float rpms = (float)PERIOD * (float)revTickAvg * 1000.0 * 4.0;
+		int rpms7seg_tens = (int)rpms / 10;
+		int rpms7seg_ones = (int)rpms % 10;
 		
-		// send Speed value to LCD or USART
-		UART_transmit_string("RPMS =  ");
-		sprintf(outs, "%.2f \n", rpms);
-		UART_transmit_string(outs);
-		_delay_ms(100);	
+		for (int i = 0; i < 10; i++)
+		{
+			//Pull LATCH low (start the SPI transfer!)
+			SHIFT_PORT &= ~LATCH;
+			//Send the tens digit to sevenseg
+			spi_send((unsigned char)SEGMENT_MAP[rpms7seg_tens]);
+			spi_send((unsigned char)0xF4);
+			SHIFT_PORT |= LATCH;
+			SHIFT_PORT &= ~LATCH;
+			_delay_ms(10);
+		
+			//Send the ones digit to sevenseg
+			//SHIFT_PORT &= ~LATCH;
+			spi_send((unsigned char)SEGMENT_MAP[rpms7seg_ones]);
+			spi_send((unsigned char)0xF8);
+			SHIFT_PORT |= LATCH;
+			SHIFT_PORT &= ~LATCH;
+			_delay_ms(10);
+		}
 	}
 }

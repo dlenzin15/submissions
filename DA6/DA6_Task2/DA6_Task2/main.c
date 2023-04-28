@@ -119,11 +119,9 @@ int main(void) {
 	UART_init(MYUBRR);
 	sei();
 	UART_transmit_string("Connected!\n"); // we're alive!
-	_delay_ms(100);
 	InitTimer3();
 	StartTimer3();
 	UART_transmit_string("TIMER3 ICP Running \r\n");
-	_delay_ms(100);
 	
 	/* set PD2 and PD3 as input */
 	DDRD &= ~(1 << DDD2);                            /* Make INT0 pin as Input */
@@ -146,7 +144,6 @@ int main(void) {
 	(1 << CS00) | (1 << CS01); /* Set Fast PWM with Fosc/64 Timer0 clock */
 	OCR0A = 30;
 	
-	float last_reading = 0;
 	while (1) {
 		OCR0A = (ADC_Read(0)/4);			// Read ADC and map it into 0-255 to write in OCR0 register 
 

@@ -123,9 +123,8 @@ int main(void) {
 	StartTimer3();
 	UART_transmit_string("TIMER3 ICP Running \r\n");
 	
-	/* set PD2 and PD3 as input */
+	/* set PD2 as input */
 	DDRD &= ~(1 << DDD2);                            /* Make INT0 pin as Input */
-	//DDRD &= ~(1 << DDD3);                            /* Make INT1 pin as Input */
 	PORTD |= (1 << DDD2);              // turn On the Pull-up
 	DDRD |= (1 << DDD6) | (1 << DDD5) | (1<<DDD1); /* Make PWM, AIN1, AIN2, STBY outputs */
 	DDRC |= (1<<DDC4)

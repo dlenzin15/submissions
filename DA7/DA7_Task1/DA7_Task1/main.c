@@ -86,31 +86,29 @@ int main()
 		Xg = Gyro_x/16.4;
 		Yg = Gyro_y/16.4;
 		Zg = Gyro_z/16.4;
-
+		
 		dtostrf( Xa, 3, 2, float_ );					/* Take values in buffer to send all parameters over USART */
-		sprintf(buffer," Ax = %s g\t",float_);
+		sprintf(buffer,"%s, ",float_);
 		USART_SendString(buffer);
 
 		dtostrf( Ya, 3, 2, float_ );
-		sprintf(buffer," Ay = %s g\t",float_);
+		sprintf(buffer,"%s, ",float_);
 		USART_SendString(buffer);
 		
 		dtostrf( Za, 3, 2, float_ );
-		sprintf(buffer," Az = %s g\n",float_);
+		sprintf(buffer,"%s, ",float_);
 		USART_SendString(buffer);
 
 		dtostrf( Xg, 3, 2, float_ );
-		sprintf(buffer," Gx = %s %c/s\t",float_,0xF8);
+		sprintf(buffer,"%s, ",float_);
 		USART_SendString(buffer);
 
 		dtostrf( Yg, 3, 2, float_ );
-		sprintf(buffer," Gy = %s %c/s\t",float_,0xF8);
+		sprintf(buffer,"%s, ",float_);
 		USART_SendString(buffer);
 		
 		dtostrf( Zg, 3, 2, float_ );
-		sprintf(buffer," Gz = %s %c/s\r\n\n",float_,0xF8);
+		sprintf(buffer,"%s\r\n",float_);
 		USART_SendString(buffer);
-		
-		_delay_ms(1000);
 	}
 }

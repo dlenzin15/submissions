@@ -17,7 +17,6 @@
 #include <stdio.h>							/* Include standard library file */
 #include "MPU6050_def.h"					/* Include MPU6050 register define file */
 #include "i2c_master.h"						/* Include I2C Master header file */
-#include "uart.h"							/* Include USART header file */
 
 float Acc_x,Acc_y,Acc_z,Temperature,Gyro_x,Gyro_y,Gyro_z;
 float pitch, roll, yaw;
@@ -97,16 +96,12 @@ void Read_RawValue()
 
 int main(void)
 {
-		char buffer[20], float_[10];
-		float Xa,Ya,Za,t;
-		float Xg=0,Yg=0,Zg=0;
-		I2C_Init();						/* Initialize I2C */
-		MPU6050_Init();					/* Initialize MPU6050 */
-		USART_Init(9600);				/* Initialize USART with 9600 baud rate */
+	I2C_Init();						/* Initialize I2C */
+	MPU6050_Init();					/* Initialize MPU6050 */
 		
-		int period;
-		DDRB = 0x0F;					/* Make PORTD lower pins as output */
-		period = 5000;					/* Set period in between two steps of Stepper Motor */
+	int period;
+	DDRB = 0x0F;					/* Make PORTD lower pins as output */
+	period = 5000;					/* Set period in between two steps of Stepper Motor */
 
     while (1) 
     {

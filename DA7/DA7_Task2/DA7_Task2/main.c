@@ -98,8 +98,6 @@ void Read_RawValue()
 int main()
 {
 	char buffer[20], float_[10];
-	float Xa,Ya,Za,t;
-	float Xg=0,Yg=0,Zg=0;
 	I2C_Init();											/* Initialize I2C */
 	MPU6050_Init();										/* Initialize MPU6050 */
 	USART_Init(9600);									/* Initialize USART with 9600 baud rate */
